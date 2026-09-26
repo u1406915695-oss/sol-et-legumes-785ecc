@@ -92,7 +92,13 @@ footer{max-width:760px;margin:0 auto;padding:0 12px 30px;color:var(--gris);font-
 
   function esc(t){ return String(t == null ? "" : t).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
   function badge(s){ return s === "confirme" ? '<span class="badge confirme">✔ confirmé</span>' : '<span class="badge a_verifier">? à vérifier</span>'; }
-  function lienSur(u){ return /^https?:\/\//.test(u) ? '<a href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">'+esc(u)+'</a>' : esc(u); }
+  var NOMS_SOURCES = {"arvalis.fr":"Arvalis – Institut du végétal","arvalis.info":"Arvalis – Institut du végétal","terresinovia.fr":"Terres Inovia","inrae.fr":"INRAE","hal.inrae.fr":"INRAE (archive HAL)","prodinra.inra.fr":"INRA (ProdInra)","franceagrimer.fr":"FranceAgriMer","semae.fr":"SEMAE (interprofession des semences)","inao.gouv.fr":"INAO","extranet.inao.gouv.fr":"INAO","info.agriculture.gouv.fr":"Ministère de l'Agriculture","draaf.nouvelle-aquitaine.agriculture.gouv.fr":"DRAAF Nouvelle-Aquitaine","nouvelle-aquitaine.developpement-durable.gouv.fr":"DREAL Nouvelle-Aquitaine","aube.gouv.fr":"Préfecture de l'Aube","culture.gouv.fr":"Ministère de la Culture","meteofrance.com":"Météo-France","fao.org":"FAO (Nations unies)","opera-connaissances.chambres-agriculture.fr":"Chambres d'agriculture (OPERA)","aura.chambres-agriculture.fr":"Chambre d'agriculture Auvergne-Rhône-Alpes","po.chambres-agriculture.fr":"Chambre d'agriculture des Pyrénées-Orientales","hautsdefrance.chambres-agriculture.fr":"Chambre d'agriculture Hauts-de-France","saoneetloire.chambres-agriculture.fr":"Chambre d'agriculture de Saône-et-Loire","haute-loire.chambres-agriculture.fr":"Chambre d'agriculture de Haute-Loire","landes.chambres-agriculture.fr":"Chambre d'agriculture des Landes","charente.chambres-agriculture.fr":"Chambre d'agriculture de Charente","occitanie.chambres-agriculture.fr":"Chambre d'agriculture Occitanie","nouvelle-aquitaine.cnpf.fr":"CNPF Nouvelle-Aquitaine","dumas.ccsd.cnrs.fr":"CNRS (archive DUMAS)","repository.cimmyt.org":"CIMMYT","perspectives-agricoles.com":"Perspectives Agricoles (Arvalis)","snhf.org":"Société nationale d'horticulture de France","france3-regions.franceinfo.fr":"France 3 Régions","wiki.tripleperformance.fr":"Triple Performance","terre-net.fr":"Terre-net","web-agri.fr":"Web-agri","pleinchamp.com":"Pleinchamp","reussir.fr":"Réussir","gerbeaud.com":"Gerbeaud","labonnegraine.com":"La Bonne Graine","fermedesaintemarthe.com":"Ferme de Sainte Marthe","sdd8e85e78ed9d3dd.jimcontent.com":"Document en ligne (hébergeur Jimdo)"};
+  function nomSource(u){
+    var m = /^https?:\/\/([^\/?#]+)/i.exec(u); if(!m) return u;
+    var h = m[1].toLowerCase().replace(/^www\./,"");
+    return NOMS_SOURCES[h] || h;
+  }
+  function lienSur(u){ return esc(nomSource(u)); }
   function nomSol(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
 
   function plantesDuSol(sol){
