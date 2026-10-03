@@ -1,16 +1,18 @@
-/* Sol & Légumes – service worker « cache d'abord » (stale-while-revalidate).
+/* Panier (anciennement Sol & Légumes) – service worker « cache d'abord » (stale-while-revalidate).
    Généré par build.py → public/sw.js (ne pas modifier public/sw.js à la main : modifier ce modèle).
    Le numéro de version (date + empreinte du contenu) nomme le cache. */
-var C='sol-legumes-2026-10-03-fc896943';
+var C='sol-legumes-2026-10-03-8d99e37b';
 var INDEX=new URL('index.html',self.registration.scope).href;
 var ANNEXES=['manifest.json','icon-192.png','icon-512.png','apple-touch-icon.png'];
+/* v6 : photos d'illustration des recettes (liste produite par build.py), mises en cache à l'installation pour être disponibles hors ligne (au mieux : une photo manquante est reprise au premier affichage en ligne). */
+var PHOTOS=["photos/tarte-pommes-miel.webp", "photos/araignee-farcie.webp", "photos/pommes-de-terre-romarin-miel.webp", "photos/veloute-carottes-pdt-miel-thym.webp", "photos/chou-rouge-pommes-demi-chou.webp", "photos/endives-braisees-pomme-miel.webp", "photos/galettes-sarrasin-pommes-miel.webp", "photos/pommes-four-coeur-miel.webp", "photos/poires-pochees-miel-thym.webp", "photos/veloute-potimarron-carotte-miel.webp", "photos/chataignes-pommes-poelees-miel.webp", "photos/fraises-miel-minute.webp", "photos/courgettes-ail-origan-poelee.webp", "photos/tomates-rotis-ail-thym-miel.webp", "photos/melon-miel-frais.webp", "photos/prunes-dorees-four-miel.webp", "photos/carottes-glacees-miel-thym.webp", "photos/veloute-courgettes-pdt-ail.webp"];
 
-/* Installation : la page est indispensable (échec = on garde l'ancienne version) ; manifest et icônes : au mieux. */
+/* Installation : la page est indispensable (échec = on garde l'ancienne version) ; manifest, icônes et photos : au mieux. */
 self.addEventListener('install',function(e){
   e.waitUntil(caches.open(C).then(function(c){
     var neuf=function(u){return new Request(u,{cache:'reload'});};
     return c.add(neuf(INDEX)).then(function(){
-      return Promise.all(ANNEXES.map(function(a){return c.add(neuf(new URL(a,self.registration.scope).href)).catch(function(){});}));
+      return Promise.all(ANNEXES.concat(PHOTOS).map(function(a){return c.add(neuf(new URL(a,self.registration.scope).href)).catch(function(){});}));
     });
   }).then(function(){return self.skipWaiting();}));
 });

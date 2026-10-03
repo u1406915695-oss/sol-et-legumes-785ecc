@@ -1,7 +1,7 @@
 {
- "name": "Sol & Légumes",
- "short_name": "Sol & Légumes",
- "description": "Quelles plantes pour mon sol ?",
+ "name": "Panier",
+ "short_name": "Panier",
+ "description": "Sol, ruches, pêche et recettes de saison",
  "lang": "fr",
  "start_url": "./",
  "scope": "./",
