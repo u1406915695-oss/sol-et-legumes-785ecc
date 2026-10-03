@@ -1,7 +1,7 @@
 /* Sol & Légumes – service worker « cache d'abord » (stale-while-revalidate).
    Généré par build.py → public/sw.js (ne pas modifier public/sw.js à la main : modifier ce modèle).
    Le numéro de version (date + empreinte du contenu) nomme le cache. */
-var C='sol-legumes-2026-10-03-644efa6f';
+var C='sol-legumes-2026-10-03-fc896943';
 var INDEX=new URL('index.html',self.registration.scope).href;
 var ANNEXES=['manifest.json','icon-192.png','icon-512.png','apple-touch-icon.png'];
 
@@ -27,6 +27,7 @@ self.addEventListener('activate',function(e){
 var etat=Promise.resolve(null);
 self.addEventListener('message',function(e){
   if(!e.data||!e.source)return;
+  if(e.data.type==='passer'){self.skipWaiting();return;}   /* bouton « Mettre à jour maintenant » : activer tout de suite une version en attente */
   var src=e.source;
   if(e.data.type==='version'){src.postMessage({type:'version',cache:C});return;}   /* la page compare avec sa propre version */
   if(e.data.type!=='etat')return;
