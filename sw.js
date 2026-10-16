@@ -1,7 +1,7 @@
 /* Panier (anciennement Sol & Légumes) – service worker « cache d'abord » (stale-while-revalidate).
    Généré par build.py → public/sw.js (ne pas modifier public/sw.js à la main : modifier ce modèle).
    Le numéro de version (date + empreinte du contenu) nomme le cache. */
-var C='sol-legumes-2026-10-04-0cb0820e';
+var C='sol-legumes-2026-10-17-4138e676';
 var INDEX=new URL('index.html',self.registration.scope).href;
 var ANNEXES=['manifest.json','icon-192.png','icon-512.png','apple-touch-icon.png'];
 /* v6 : photos d'illustration des recettes (liste produite par build.py), mises en cache à l'installation pour être disponibles hors ligne (au mieux : une photo manquante est reprise au premier affichage en ligne). */

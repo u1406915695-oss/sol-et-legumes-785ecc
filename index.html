@@ -335,6 +335,8 @@ body:has(.bandeau-sw:not(:empty)){padding-bottom:96px}
     <p><span class="badge confirme">✔ confirmé</span> Une information porte ce signe quand elle a été retrouvée dans au moins deux sources différentes, dont une officielle (État, instituts publics, Chambres d'agriculture…). Deux documents d'une même organisation comptent pour une seule source.</p>
     <p><span class="badge a_verifier">? à vérifier</span> Une information porte ce signe quand elle n'a pas été recoupée : une seule source, sources qui se contredisent, ou aucune source officielle. Elle peut être juste, mais ne la prenez pas pour un fait.</p>
     <p>Quand une information manque, l'appli préfère ne rien afficher plutôt que de montrer une case vide. Pour les tailles minimales et les règles de sécurité, l'absence de donnée est écrite et vous renvoie vers l'administration.</p>
+    <h3 id="a-propos-masque">Informations masquées</h3>
+    <p id="a-propos-masque-txt">Pour les revenus, le climat et les régions favorables, l'appli n'affiche plus que les informations confirmées. Celles qui ne sont pas encore recoupées sont masquées en attendant leur vérification auprès de sources officielles. Une fiche peut donc n'avoir aucune ligne « revenu », « climat » ou « où ça pousse bien ».</p>
     <h3>Les dates</h3>
     <p><strong>« Données du … »</strong> est la date de mise à jour de nos fiches. C'est la même date pour toutes les fiches d'un même groupe : ce n'est pas un contrôle fait fiche par fiche, et cela ne veut pas dire « vérifié ce jour-là ».</p>
     <h3>Le classement et les prix</h3>
@@ -348,7 +350,7 @@ body:has(.bandeau-sw:not(:empty)){padding-bottom:96px}
 </section>
 <section class="version-app encart-version" aria-labelledby="titre-version">
   <h2 id="titre-version">Version de l'appli</h2>
-  <p class="num-version">Numéro de version : <strong id="version-app">2026-10-04-0cb0820e</strong> (du <span id="date-app"></span>)</p>
+  <p class="num-version">Numéro de version : <strong id="version-app">2026-10-17-4138e676</strong> (du <span id="date-app"></span>)</p>
   <button type="button" id="btn-maj" class="btn-action">🔄 Mettre à jour maintenant</button>
   <p id="msg-maj" class="msg-maj" role="status" aria-live="polite"></p>
   <p id="diag-maj" class="diag-maj"></p>
@@ -587,14 +589,14 @@ body:has(.bandeau-sw:not(:empty)){padding-bottom:96px}
   }
   function blocAgri(p){
     var a = p.agri || {}, h = "";
-    h += '<p><span class="etiq">Revenu indicatif :</span> ' + (a.revenu ? esc(a.revenu) + (a.revenu_annee ? " (" + esc(a.revenu_annee) + ")" : "") + " " + badge(a.revenu_statut) : "non renseigné") + '</p>';
+    if (!a.revenu || a.revenu_statut === "confirme") h += '<p><span class="etiq">Revenu indicatif :</span> ' + (a.revenu ? esc(a.revenu) + (a.revenu_annee ? " (" + esc(a.revenu_annee) + ")" : "") + " " + badge(a.revenu_statut) : "non renseigné") + '</p>';   /* v10 : revenu non confirmé masqué */
     if (a.rente) h += '<p><span class="etiq">Culture de rente</span> (valeur élevée par surface)</p>';
     var d = "";
     if (a.debouches && a.debouches.length) d += '<p><span class="etiq">Où la vendre (débouchés) :</span> ' + esc(a.debouches.join(", ")) + '</p>';
     var vig = (a.vigilance || []).filter(function(v){ return !doublonVigilance(v, p); });
     if (vig.length) d += '<p class="etiq">Points d\'attention</p><ul>' + vig.map(function(v){ return '<li>' + esc(v.texte) + ' ' + badge(v.statut) + '</li>'; }).join("") + '</ul>';
-    var clim = (a.risques || []).map(function(c){ return '<li><span class="etiq">' + esc(LIB_ASPECT[c.aspect] || c.aspect) + ' :</span> ' + esc(c.texte) + ' ' + badge(c.statut) + '</li>'; })
-      .concat((a.opportunites || []).map(function(c){ return '<li><span class="etiq">Opportunité – ' + esc(LIB_ASPECT[c.aspect] || c.aspect) + ' :</span> ' + esc(c.texte) + ' ' + badge(c.statut) + '</li>'; }));
+    var clim = (a.risques || []).filter(function(c){ return c.statut === "confirme" || REGLE_GARDEE.test(String(c.texte || "")); }).map(function(c){ return '<li><span class="etiq">' + esc(LIB_ASPECT[c.aspect] || c.aspect) + ' :</span> ' + esc(c.texte) + ' ' + badge(c.statut) + '</li>'; })
+      .concat((a.opportunites || []).filter(function(c){ return c.statut === "confirme" || REGLE_GARDEE.test(String(c.texte || "")); }).map(function(c){ return '<li><span class="etiq">Opportunité – ' + esc(LIB_ASPECT[c.aspect] || c.aspect) + ' :</span> ' + esc(c.texte) + ' ' + badge(c.statut) + '</li>'; }));
     if (clim.length) d += '<p class="etiq">Climat</p><ul>' + clim.join("") + '</ul>';
     if (d) h += '<details class="fiche"><summary>Détails pour l\'agriculteur</summary>' + d + '</details>';
     return h;
@@ -633,7 +635,7 @@ body:has(.bandeau-sw:not(:empty)){padding-bottom:96px}
     h += prixBloc("plante", p.id);
     h += '<p><span class="etiq">Pourquoi ce sol :</span> ' + esc(ps.justification || p.justification || "") + ' ' + badge(ps.statut) + '</p>';
     if (p.tolerance) h += '<p><span class="etiq">Eau et sécheresse :</span> ' + esc(p.tolerance) + ' ' + badge(p.eau_statut) + '</p>';
-    if (p.regions && p.regions.length) h += '<p><span class="etiq">Où ça pousse bien :</span> ' + esc(p.regions.join(", ")) + ' ' + badge(p.regions_statut) + '</p>';
+    if (p.regions && p.regions.length && p.regions_statut === "confirme") h += '<p><span class="etiq">Où ça pousse bien :</span> ' + esc(p.regions.join(", ")) + ' ' + badge(p.regions_statut) + '</p>';
     h += etat.mode === "jardinier" ? blocJard(p) : blocAgri(p);
     var src = p.sources || [];
     h += '<details class="sources"><summary>Sources (' + src.length + ')</summary><ul>' + src.map(function(u){ return '<li>' + lienSur(u) + '</li>'; }).join("") + '</ul></details>';
@@ -758,6 +760,10 @@ body:has(.bandeau-sw:not(:empty)){padding-bottom:96px}
   function pInfo(label, i, cacher){ return masquer(i, cacher) ? "" : '<p><span class="etiq">' + esc(label) + ' :</span> ' + txtInfo(i) + '</p>'; }
   function liInfo(label, i, cacher){ return masquer(i, cacher) ? "" : '<li>' + (label ? '<span class="etiq">' + esc(label) + ' :</span> ' : "") + txtInfo(i) + '</li>'; }
   function listeInfos(arr, cacher){ return (arr || []).map(function(x){ return liInfo(x.k, x, cacher); }).join(""); }
+  /* v10 : revenus, climat et régions : seules les informations confirmées sont affichées (les autres restent dans les données, masquées à l'affichage). */
+  var REGLE_GARDEE = /interdi/i;   /* une règle (interdiction) reste affichée même non confirmée, avec sa pastille */
+  function estSur(i){ return !!i && (i.s === "confirme" || i.s === "sans_objet" || REGLE_GARDEE.test(String(i.v || ""))); }
+  function seulementSures(arr){ return (arr || []).filter(estSur); }
 
   // ---------- Apiculture ----------
   function carteApi(c){
@@ -771,18 +777,20 @@ body:has(.bandeau-sw:not(:empty)){padding-bottom:96px}
     if (c.remarque) h += '<p><span class="etiq">Remarque :</span> ' + esc(c.remarque) + '</p>';
     h += pInfo("Ruches", c.ruches);
     var r = c.revenu || {};
-    if (r.texte && c.phrase.indexOf(r.texte) !== -1) h += '<p><span class="etiq">Revenu indicatif (voir les chiffres ci-dessus) :</span> ' + badge(r.s) + '</p>';
+    var revSur = r.s === "confirme";   /* v10 : revenu non confirmé masqué (ligne et calcul) */
+    if (r.texte && !revSur) {}
+    else if (r.texte && c.phrase.indexOf(r.texte) !== -1) h += '<p><span class="etiq">Revenu indicatif (voir les chiffres ci-dessus) :</span> ' + badge(r.s) + '</p>';
     else h += '<p><span class="etiq">Revenu indicatif :</span> ' + (r.texte ? esc(r.texte) + " " + badge(r.s) : "non renseigné") + '</p>';
     h += pInfo("Floraison", c.floraison) + pInfo("Nectar pour les abeilles", c.nectar) + pInfo("Pollen pour les abeilles", c.pollen) + pInfo("Type de miel", c.miel);
     var d = "";
     var lr = c.rendement ? liInfo("Rendement en miel", c.rendement) : ""; if (lr) d += '<ul>' + lr + '</ul>';
-    if (r.calculs && r.calculs.length) d += '<p class="etiq">Calcul du revenu</p><ul>' + r.calculs.map(function(t){ return '<li>' + esc(t) + '</li>'; }).join("") + (r.motif_total ? '<li>' + esc(r.motif_total) + '</li>' : "") + '</ul>';
+    if (revSur && r.calculs && r.calculs.length) d += '<p class="etiq">Calcul du revenu</p><ul>' + r.calculs.map(function(t){ return '<li>' + esc(t) + '</li>'; }).join("") + (r.motif_total ? '<li>' + esc(r.motif_total) + '</li>' : "") + '</ul>';
     if (c.gains && c.gains.length) d += '<p class="etiq">Gains et coûts</p><ul>' + c.gains.map(function(g){ return liInfo(g.k, g); }).join("") + '</ul>';
     if (c.debouches && c.debouches.length) d += '<p class="etiq">Où vendre (débouchés)</p><ul>' + c.debouches.map(function(x){ return liInfo("", x); }).join("") + '</ul>';
     if (c.regl_spec && c.regl_spec.length) d += '<p class="etiq">Réglementation et pratiques propres à cette culture</p><ul>' + c.regl_spec.map(function(x){ return liInfo("", x); }).join("") + '</ul>';
     if (d) h += '<details class="fiche"><summary>Détails pour l\'agriculteur</summary>' + d + '</details>';
     var cl = c.climat || {}, dc = "";
-    var l1 = listeInfos(cl.plante, true), l2 = listeInfos(cl.specifique, true), l3 = listeInfos(cl.colonies, true);
+    var l1 = listeInfos(seulementSures(cl.plante), true), l2 = listeInfos(seulementSures(cl.specifique), true), l3 = listeInfos(seulementSures(cl.colonies), true);
     if (l1) dc += '<p class="etiq">La plante</p><ul>' + l1 + '</ul>';
     if (l2) dc += '<p class="etiq">Propre à cette association</p><ul>' + l2 + '</ul>';
     if (l3) dc += '<p class="etiq">Les colonies</p><ul>' + l3 + '</ul>';
@@ -799,7 +807,7 @@ body:has(.bandeau-sw:not(:empty)){padding-bottom:96px}
     var L = API.combinaisons.filter(function(c){ return c.sol === etatApi.sol; });
     L.sort(function(a, b){ return (a.statut === "confirme" ? 0 : 1) - (b.statut === "confirme" ? 0 : 1); });
     desc.textContent = (API.sols && API.sols[etatApi.sol]) || "";
-    var nc = L.filter(function(c){ return c.statut === "confirme"; }).length;
+    var nc = L.filter(function(c){ return c.statut === "confirme" || REGLE_GARDEE.test(String(c.texte || "")); }).length;
     if (!L.length) {
       resume.textContent = "Sol " + etatApi.sol + " : aucune culture pour le moment";
       var autres = Object.keys(API.sols || {}).filter(function(s){ return s !== etatApi.sol; });
@@ -814,7 +822,7 @@ body:has(.bandeau-sw:not(:empty)){padding-bottom:96px}
     document.getElementById("api-regles").innerHTML = (API.regles || []).map(function(r){
       return '<li data-cle="' + esc(r.cle) + '"><p><span class="etiq">' + esc(r.k) + '</span></p><p>' + txtInfo(r) + '</p>' + blocSources(r.sources) + '</li>';
     }).join("");
-    var h = "", c1 = listeInfos(API.climat_2050, true), c2 = listeInfos(API.climat_colonies, true);
+    var h = "", c1 = listeInfos(seulementSures(API.climat_2050), true), c2 = listeInfos(seulementSures(API.climat_colonies), true);
     if (c1) h += '<p class="etiq">Climat en France d\'ici 2050</p><ul>' + c1 + '</ul>';
     if (c2) h += '<p class="etiq">Effets sur les colonies</p><ul>' + c2 + '</ul>';
     document.getElementById("api-climat-contenu").innerHTML = h;
@@ -915,8 +923,8 @@ body:has(.bandeau-sw:not(:empty)){padding-bottom:96px}
     }).join("") + '</ul>' + (e.quota_com ? '<p class="motif">' + esc(e.quota_com) + '</p>' : "") + '</details>';
     h += e.prix ? pInfo("Prix moyen", e.prix) : '<p><span class="etiq">Prix moyen :</span> non disponible</p>';
     if (e.alt && e.alt.necessaire) h += '<p><span class="etiq">Autres choix possibles :</span> ' + (e.alt.especes.length ? e.alt.especes.map(function(a){ return esc(a.nom) + (a.etat ? " (" + esc(a.etat) + " " + badge(a.s) + ")" : ""); }).join(", ") : esc(e.alt.explication || "aucune")) + '</p>';
-    if (e.rechauffement && e.rechauffement.v !== "non documentée") h += '<p><span class="etiq">Effet du réchauffement de la mer :</span> ' + esc(e.rechauffement.v) + ' ' + badge(e.rechauffement.s) + (e.rechauffement.exp ? '<span class="motif">' + esc(e.rechauffement.exp) + '</span>' : "") + '</p>';
-    var lcl = listeInfos(e.climat, true);
+    if (e.rechauffement && e.rechauffement.v !== "non documentée" && e.rechauffement.s === "confirme") h += '<p><span class="etiq">Effet du réchauffement de la mer :</span> ' + esc(e.rechauffement.v) + ' ' + badge(e.rechauffement.s) + (e.rechauffement.exp ? '<span class="motif">' + esc(e.rechauffement.exp) + '</span>' : "") + '</p>';
+    var lcl = listeInfos(seulementSures(e.climat), true);
     if (lcl) h += '<details class="climat"><summary>Climat</summary><ul>' + lcl + '</ul></details>';
     if (e.zp && e.zp.length) {
       var lzp = listeInfos(e.zp, true), manque = e.zp.some(function(x){ return vide(x) && x.s !== "confirme"; });
