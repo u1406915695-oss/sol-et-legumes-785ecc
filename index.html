@@ -485,8 +485,8 @@ body:has(.bandeau-sw:not(:empty)){padding-bottom:96px}
 </section>
 <section class="version-app encart-version" aria-labelledby="titre-version">
   <h2 id="titre-version">Version de l'appli</h2>
-  <p class="num-version">Numéro de version : <strong id="version-app">2026-10-17-bf94f794</strong> (du <span id="date-app"></span>)</p>
-  <button type="button" id="btn-maj" class="btn-action">🔄 Mettre à jour maintenant</button>
+  <p class="num-version">Numéro de version : <strong id="version-app">2026-10-17-9fd0b553</strong> (du <span id="date-app"></span>)</p>
+  <button type="button" id="btn-maj" class="btn-action">🔄 Vérifier s'il y a une mise à jour</button>
   <p id="msg-maj" class="msg-maj" role="status" aria-live="polite"></p>
   <p id="diag-maj" class="diag-maj"></p>
   <p class="aide-maj">Touchez ce bouton pour chercher une nouvelle version et l'installer. L'appli continue de marcher sans connexion.</p>
@@ -497,11 +497,11 @@ body:has(.bandeau-sw:not(:empty)){padding-bottom:96px}
   </div>
 </section>
 <script>
-/* Bouton « Mettre à jour maintenant » : script AUTONOME (il ne dépend d'aucun autre code de la page, et une erreur ailleurs ne le gêne pas).
+/* Bouton « Vérifier s'il y a une mise à jour » (anciennement « Mettre à jour maintenant ») : script AUTONOME (il ne dépend d'aucun autre code de la page, et une erreur ailleurs ne le gêne pas).
    - Il s'attache dès le chargement et affiche TOUJOURS un message (début, résultat ou « Une erreur est survenue (code) : détail »).
    - Le message est amené au milieu de l'écran et reste affiché au moins 6 s avant tout rechargement (et un message « terminé » est remontré après le rechargement).
    - Mode de secours : « Réinstaller l'appli » désinscrit le service worker et supprime SEULEMENT les caches « sol-legumes… » ; rien d'autre n'est effacé
-     (l'appli ne garde aucun réglage sur le téléphone : ni stockage local, ni cookie). */
+     (le stockage local du téléphone — semis, météo, bandeau déjà annoncé — n'est pas touché, aucun cookie). */
 (function(){
   var DELAI_RECHARGE=6500, DELAI_ECHEC=30000;
   var msg=null, btn=null, diag=null, lien=null, zone=null, btnSec=null;
@@ -1674,7 +1674,7 @@ body:has(.bandeau-sw:not(:empty)){padding-bottom:96px}
 </script>
 <script>
 /* Hors ligne : indicateur de réseau, messages « prêt hors ligne » / « nouvelle version », enregistrement du service worker.
-   Rien n'est stocké durablement sur le téléphone par la page (le cache du service worker contient seulement les fichiers de l'appli). Le bouton « Mettre à jour » est dans le script autonome placé juste après l'encart « Version de l'appli ». */
+   Seul stockage de ce script : la version déjà annoncée par le bandeau « Mise à jour disponible » (clé « panier-maj-annoncee », bloc MAJ-ANNONCE ci-dessous). Le bouton « Vérifier s'il y a une mise à jour » est dans le script autonome placé juste après l'encart « Version de l'appli ». */
 (function(){
   var zone=document.getElementById("etat-reseau"), bandeau=document.getElementById("bandeau-sw");
   var coupure=false, hors=false, tReseau, tBandeau, sonde;
@@ -1703,6 +1703,22 @@ body:has(.bandeau-sw:not(:empty)){padding-bottom:96px}
     bandeau.appendChild(s); bandeau.appendChild(b);
     if(duree) tBandeau=setTimeout(function(){ bandeau.textContent=""; },duree);
   }
+  /*MAJ-ANNONCE-DEBUT*/
+  /* Bandeau « Mise à jour disponible » : une seule fois par version (correctif du 17/10/2026, accord de Steve).
+     La version annoncée (nom du cache, ex. « sol-legumes-2026-10-17-xxxxxxxx ») est gardée dans localStorage, clé « panier-maj-annoncee » (une seule valeur, rien d'autre).
+     Si le stockage du téléphone est bloqué ou plein (navigation privée, réglage du navigateur) : aucune erreur ; la version annoncée est retenue
+     seulement en mémoire, donc le bandeau ne revient pas tant que l'appli reste ouverte, mais il peut réapparaître une fois à la prochaine ouverture. */
+  var CLE_ANNONCE="panier-maj-annoncee", annonceeMemoire="";
+  function dejaAnnoncee(cache){
+    if(!cache) return false;
+    if(annonceeMemoire===cache) return true;
+    try{ return localStorage.getItem(CLE_ANNONCE)===cache; }catch(_){ return false; }
+  }
+  function memoriserAnnonce(cache){
+    annonceeMemoire=cache||"";
+    try{ localStorage.setItem(CLE_ANNONCE,String(cache)); }catch(_){}
+  }
+  /*MAJ-ANNONCE-FIN*/
   var h=location.hostname;
   var swPossible=("serviceWorker" in navigator) && (location.protocol==="https:"||h==="localhost"||h==="127.0.0.1");
   if(!swPossible) return;
@@ -1718,8 +1734,12 @@ body:has(.bandeau-sw:not(:empty)){padding-bottom:96px}
     /* nouveau service worker actif : message seulement si la page affichée n'est pas déjà de cette version */
     if(e.data.type==="version"){
       var autre=e.data.cache!=="sol-legumes-"+document.getElementById("version-app").textContent;
-      /* pendant un clic sur « Mettre à jour maintenant », c'est le script du bouton qui répond (pas de double message) */
-      if(!window.__majEnCours&&autre) annonce("Mise à jour disponible : fermez puis rouvrez l'appli, ou touchez « Mettre à jour maintenant » en bas de page.");
+      /* pendant un clic sur « Vérifier s'il y a une mise à jour », c'est le script du bouton qui répond (pas de double message) */
+      /* correctif du 17/10/2026 : le bandeau ne s'affiche qu'UNE fois par version (voir bloc MAJ-ANNONCE) */
+      if(!window.__majEnCours&&autre&&!dejaAnnoncee(e.data.cache)){
+        memoriserAnnonce(e.data.cache);
+        annonce("Mise à jour disponible : fermez puis rouvrez l'appli, ou touchez « Vérifier s'il y a une mise à jour » en bas de page.");
+      }
     }
   });
   navigator.serviceWorker.register("sw.js").then(function(reg){
