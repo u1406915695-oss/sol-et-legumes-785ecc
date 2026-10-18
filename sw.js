@@ -1,7 +1,10 @@
-/* Panier (anciennement Sol & Légumes) – service worker « cache d'abord » (stale-while-revalidate).
+/* Panier (anciennement Sol & Légumes) – service worker « cache d'abord ».
+   Mise à jour silencieuse (18/10/2026) : une nouvelle version se télécharge en arrière-plan et ATTEND (pas de skipWaiting à l'installation) ;
+   elle prend la main à la prochaine ouverture de l'appli (navigation sans autre page ouverte), jamais en pleine utilisation.
+   La page (index.html) n'est plus remplacée en arrière-plan dans le cache : chaque version de service worker sert SA page.
    Généré par build.py → public/sw.js (ne pas modifier public/sw.js à la main : modifier ce modèle).
    Le numéro de version (date + empreinte du contenu) nomme le cache. */
-var C='sol-legumes-2026-10-18-c3368c85';
+var C='sol-legumes-2026-10-18-cf060bfa';
 var INDEX=new URL('index.html',self.registration.scope).href;
 var ANNEXES=['manifest.json','icon-192.png','icon-512.png','apple-touch-icon.png','favicon-32.png'];
 /* v6 : photos d'illustration des recettes (liste produite par build.py), mises en cache à l'installation pour être disponibles hors ligne (au mieux : une photo manquante est reprise au premier affichage en ligne). */
@@ -14,7 +17,7 @@ self.addEventListener('install',function(e){
     return c.add(neuf(INDEX)).then(function(){
       return Promise.all(ANNEXES.concat(PHOTOS).map(function(a){return c.add(neuf(new URL(a,self.registration.scope).href)).catch(function(){});}));
     });
-  }).then(function(){return self.skipWaiting();}));
+  }));   /* pas de skipWaiting ici : la nouvelle version attend la prochaine ouverture (voir « navigation » plus bas) */
 });
 
 /* Activation : on supprime les anciens caches de l'appli (et eux seuls), puis on prend la main sur les pages ouvertes. */
@@ -29,9 +32,12 @@ self.addEventListener('activate',function(e){
 var etat=Promise.resolve(null);
 self.addEventListener('message',function(e){
   if(!e.data||!e.source)return;
-  if(e.data.type==='passer'){self.skipWaiting();return;}   /* bouton « Mettre à jour maintenant » : activer tout de suite une version en attente */
+  /* « passer » : activer tout de suite cette version en attente (bouton « Vérifier s'il y a une mise à jour », page déjà de cette version,
+     ou service worker précédent au moment d'une réouverture) */
+  if(e.data.type==='passer'){self.skipWaiting();return;}
   var src=e.source;
-  if(e.data.type==='version'){src.postMessage({type:'version',cache:C});return;}   /* la page compare avec sa propre version */
+  /* « version » : réponse sur le canal fourni (MessageChannel) s'il y en a un, sinon à l'expéditeur */
+  if(e.data.type==='version'){var rep={type:'version',cache:C};if(e.ports&&e.ports[0])e.ports[0].postMessage(rep);else src.postMessage(rep);return;}
   /* Feature hors ligne (17/10/2026) : réseau faible = une photo ou une icône a pu manquer à l'installation ; à chaque ouverture en ligne,
      la page demande de compléter le cache avec ce qui manque (rien n'est retéléchargé si tout est déjà là). */
   if(e.data.type==='completer'){
@@ -47,23 +53,69 @@ self.addEventListener('message',function(e){
   e.waitUntil(etat.then(function(ok){if(ok!==null)src.postMessage({type:'reseau',ok:ok});}));
 });
 
-/* Cache d'abord : on répond tout de suite avec la copie du téléphone et on la met à jour en arrière-plan. */
+/* Version en attente (installée, pas encore active) : on lui demande le nom de son cache.
+   La question est reposée toutes les 300 ms (1,5 s au plus) : juste après l'installation, Chrome peut perdre le tout premier message. */
+function cacheEnAttente(w){
+  return new Promise(function(ok){
+    var fini=false, essais=[];
+    function fin(v){if(fini)return;fini=true;essais.forEach(clearTimeout);ok(v);}
+    function demander(){
+      if(fini)return;
+      var ch=new MessageChannel();
+      ch.port1.onmessage=function(m){fin(m.data&&m.data.cache?m.data.cache:null);};
+      try{w.postMessage({type:'version'},[ch.port2]);}catch(_){fin(null);}
+    }
+    for(var i=0;i<5;i++)essais.push(setTimeout(demander,i*300));
+    essais.push(setTimeout(function(){fin(null);},1500));
+  });
+}
+/* Navigation (ouverture ou rechargement de l'appli) :
+   - si une nouvelle version attend ET qu'aucune autre page de l'appli n'est ouverte (réouverture), on sert la page de la nouvelle version
+     et on lui passe la main (elle supprimera l'ancien cache à son activation) ;
+   - sinon on sert la page de cette version, depuis le cache (hors ligne compris) ;
+   - une petite requête HEAD sans corps dit si le réseau répond vraiment (indicateur « Sans réseau »), sans retélécharger la page. */
+function navigation(e){
+  var sonde=fetch(INDEX,{method:'HEAD',cache:'no-store'}).then(function(rep){return !!(rep&&rep.ok);},function(){return false;});
+  etat=sonde; e.waitUntil(sonde);
+  var w=self.registration.waiting;
+  var bascule=!w?Promise.resolve(null):self.clients.matchAll({type:'window'}).then(function(l){
+    if(l.length>1)return null;                                  /* une autre page est ouverte : on ne change rien en pleine utilisation */
+    return cacheEnAttente(w).then(function(nom){
+      if(!nom||nom===C||nom.indexOf('sol-legumes')!==0)return null;
+      return caches.open(nom).then(function(c){return c.match(INDEX);}).then(function(rep){
+        if(!rep)return null;
+        w.postMessage({type:'passer'});
+        return rep;
+      });
+    });
+  }).catch(function(){return null;});
+  return bascule.then(function(rep){
+    if(rep)return rep;
+    return caches.open(C).then(function(c){
+      return c.match(INDEX).then(function(copie){
+        if(copie)return copie;
+        return fetch(INDEX).then(function(r){if(r&&r.ok&&r.type==='basic')c.put(INDEX,r.clone()).catch(function(){});return r;});
+      });
+    });
+  }).catch(function(){return Response.error();});
+}
+
+/* Cache d'abord : on répond tout de suite avec la copie du téléphone (photos, icônes…) et on la met à jour en arrière-plan. */
 self.addEventListener('fetch',function(e){
   var r=e.request;
   if(r.method!=='GET'||r.headers.has('range'))return;          /* on ignore tout sauf les GET simples */
   if(new URL(r.url).origin!==self.location.origin)return;       /* et tout ce qui vient d'un autre site */
-  var nav=r.mode==='navigate';
-  var cle=nav?INDEX:r.url;                                       /* toute navigation → la page unique */
+  if(r.mode==='navigate'){e.respondWith(navigation(e));return;}  /* toute navigation → la page unique de la bonne version */
+  var cle=r.url;
   e.respondWith(caches.open(C).then(function(c){
     return c.match(cle,{ignoreSearch:true}).then(function(copie){
-      var maj=fetch(nav?INDEX:r,{cache:'no-cache'}).then(function(rep){
+      var maj=fetch(r,{cache:'no-cache'}).then(function(rep){
         var ecrit=(rep&&rep.ok&&rep.type==='basic')?c.put(cle,rep.clone()).catch(function(){}):Promise.resolve();
         return ecrit.then(function(){return rep;});
       }).catch(function(){return null;});
       e.waitUntil(maj);
-      if(nav){etat=maj.then(function(rep){return !!(rep&&rep.ok);});}
       if(copie)return copie;
-      return maj.then(function(rep){return rep||c.match(INDEX).then(function(i){return nav&&i?i:Response.error();});});
+      return maj.then(function(rep){return rep||Response.error();});
     });
   }));
 });

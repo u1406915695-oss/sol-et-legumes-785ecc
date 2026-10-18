@@ -202,6 +202,12 @@ ol.liste,ul.regles{list-style:none;margin:0;padding:0;display:flex;flex-directio
 .bandeau-sw span{flex:1}
 .bandeau-sw button{font-family:inherit;min-height:48px;min-width:48px;padding:0 14px;border:1px solid #fff;border-radius:10px;background:transparent;color:#fff;font-size:1rem;cursor:pointer}
 body:has(.bandeau-sw:not(:empty)){padding-bottom:96px}
+.bandeau-sw.discret{padding:6px 6px 6px 14px;background:#24492d}
+.bandeau-sw a{color:#fff;font-weight:700;text-decoration:underline;text-underline-offset:3px;display:inline-flex;align-items:center;min-height:48px;padding:0 6px}
+.nouveautes{margin:12px 0 4px}
+.nouveautes summary{cursor:pointer;font-weight:700;min-height:48px;display:flex;align-items:center}
+.nouveautes ul{margin:4px 0 8px;padding-left:22px}
+.nouveautes li{margin:0 0 6px}
 .version-app{max-width:760px;margin:8px auto 24px;padding:0 16px;color:var(--gris);font-size:1rem;line-height:1.55}
 .encart-version{background:#fff;border:1px solid var(--bord);border-radius:14px;padding:6px 18px 18px;width:calc(100% - 32px)}
 .encart-version h2{font-size:1.25rem;margin:12px 0 6px}
@@ -485,11 +491,19 @@ body:has(.bandeau-sw:not(:empty)){padding-bottom:96px}
 </section>
 <section class="version-app encart-version" aria-labelledby="titre-version">
   <h2 id="titre-version">Version de l'appli</h2>
-  <p class="num-version">Numéro de version : <strong id="version-app">2026-10-18-c3368c85</strong> (du <span id="date-app"></span>)</p>
+  <p class="num-version">Numéro de version : <strong id="version-app">2026-10-18-cf060bfa</strong> (du <span id="date-app"></span>)</p>
   <button type="button" id="btn-maj" class="btn-action">🔄 Vérifier s'il y a une mise à jour</button>
   <p id="msg-maj" class="msg-maj" role="status" aria-live="polite"></p>
   <p id="diag-maj" class="diag-maj"></p>
-  <p class="aide-maj">Touchez ce bouton pour chercher une nouvelle version et l'installer. L'appli continue de marcher sans connexion.</p>
+  <p class="aide-maj">L'appli se met à jour toute seule : une nouvelle version se télécharge en arrière-plan et s'installe la prochaine fois que vous ouvrez l'appli. Touchez ce bouton pour chercher une nouvelle version tout de suite. L'appli continue de marcher sans connexion.</p>
+  <details id="nouveautes" class="nouveautes">
+    <summary id="titre-nouveautes">Nouveautés de l'appli</summary>
+    <ul>
+      <li>Mise à jour automatique : la nouvelle version se télécharge en arrière-plan et s'installe à la prochaine ouverture de l'appli, sans interrompre ce que vous faites.</li>
+      <li>Plus de message « Mise à jour disponible » à toucher : une petite ligne « Appli mise à jour » s'affiche quelques secondes après l'installation.</li>
+      <li>Le bouton « Vérifier s'il y a une mise à jour » reste disponible ici pour chercher une nouvelle version tout de suite.</li>
+    </ul>
+  </details>
   <button type="button" id="lien-secours" class="lien-secours" hidden>Ça ne marche pas ? Réinitialiser l'appli</button>
   <div id="zone-secours" class="zone-secours" hidden>
     <p>En cas de problème, ce bouton efface la copie de l'appli enregistrée sur votre téléphone, puis recharge l'appli depuis internet (il faut être en ligne). Vos réglages ne sont pas touchés.</p>
@@ -501,7 +515,8 @@ body:has(.bandeau-sw:not(:empty)){padding-bottom:96px}
    - Il s'attache dès le chargement et affiche TOUJOURS un message (début, résultat ou « Une erreur est survenue (code) : détail »).
    - Le message est amené au milieu de l'écran et reste affiché au moins 6 s avant tout rechargement (et un message « terminé » est remontré après le rechargement).
    - Mode de secours : « Réinstaller l'appli » désinscrit le service worker et supprime SEULEMENT les caches « sol-legumes… » ; rien d'autre n'est effacé
-     (le stockage local du téléphone — semis, météo, bandeau déjà annoncé — n'est pas touché, aucun cookie). */
+     (le stockage local du téléphone — semis, météo, dernière version vue — n'est pas touché, aucun cookie).
+   - Mise à jour silencieuse (18/10/2026) : une version trouvée par ce bouton n'attend pas la prochaine ouverture : elle est activée tout de suite (message « passer »). */
 (function(){
   var DELAI_RECHARGE=6500, DELAI_ECHEC=30000;
   var msg=null, btn=null, diag=null, lien=null, zone=null, btnSec=null;
@@ -586,8 +601,12 @@ body:has(.bandeau-sw:not(:empty)){padding-bottom:96px}
       }).then(function(){
         if(!forcer) return;
         if(trouve||reg.installing||reg.waiting){
-          /* nouvelle version en cours d'installation : elle s'active seule (skipWaiting) puis la page reçoit « version » → rechargement */
-          if(reg.waiting) reg.waiting.postMessage({type:"passer"});
+          /* nouvelle version trouvée : on l'active dès qu'elle est installée (message « passer »), puis la page reçoit « version » → rechargement */
+          var w=reg.installing||reg.waiting;
+          if(w){
+            if(w.state==="installed") w.postMessage({type:"passer"});
+            else w.addEventListener("statechange",function(){ if(w.state==="installed") w.postMessage({type:"passer"}); });
+          }
           return;
         }
         var actif=reg.active||navigator.serviceWorker.controller;
@@ -633,6 +652,7 @@ body:has(.bandeau-sw:not(:empty)){padding-bottom:96px}
     diagnostic();
     /* message affiché après un rechargement demandé par le bouton, et nettoyage du paramètre de contournement */
     var apres=apresParam();
+    window.__apresMaj=apres;   /* lu par le script « hors ligne » : pas de ligne « Appli mise à jour » en plus du message de ce bouton */
     if(apres){
       window.addEventListener("load",function(){ setTimeout(function(){ try{ msg.scrollIntoView({block:"center",inline:"nearest"}); }catch(_){} },150); });   /* la page est plus haute une fois affichée : on recentre le message */
       dire(apres==="secours" ? "Réinstallation terminée : l'appli vient d'être rechargée depuis internet (version "+version()+")."
@@ -1673,8 +1693,9 @@ body:has(.bandeau-sw:not(:empty)){padding-bottom:96px}
 })();
 </script>
 <script>
-/* Hors ligne : indicateur de réseau, messages « prêt hors ligne » / « nouvelle version », enregistrement du service worker.
-   Seul stockage de ce script : la version déjà annoncée par le bandeau « Mise à jour disponible » (clé « panier-maj-annoncee », bloc MAJ-ANNONCE ci-dessous). Le bouton « Vérifier s'il y a une mise à jour » est dans le script autonome placé juste après l'encart « Version de l'appli ». */
+/* Hors ligne : indicateur de réseau, message « prêt hors ligne », mise à jour silencieuse et ligne « Appli mise à jour », enregistrement du service worker.
+   Seul stockage de ce script : la dernière version affichée sur ce téléphone (clé « panier-version-vue », bloc MAJ-SILENCIEUSE ci-dessous).
+   Le bouton « Vérifier s'il y a une mise à jour » est dans le script autonome placé juste après l'encart « Version de l'appli ». */
 (function(){
   var zone=document.getElementById("etat-reseau"), bandeau=document.getElementById("bandeau-sw");
   var coupure=false, hors=false, tReseau, tBandeau, sonde;
@@ -1696,53 +1717,96 @@ body:has(.bandeau-sw:not(:empty)){padding-bottom:96px}
   document.addEventListener("visibilitychange",verifier);
   majReseau();
   function annonce(texte,duree){
-    clearTimeout(tBandeau); bandeau.textContent="";
+    clearTimeout(tBandeau); bandeau.textContent=""; bandeau.className="bandeau-sw";
     var s=document.createElement("span"); s.textContent=texte;
     var b=document.createElement("button"); b.type="button"; b.textContent="Fermer";
     b.addEventListener("click",function(){ bandeau.textContent=""; });
     bandeau.appendChild(s); bandeau.appendChild(b);
     if(duree) tBandeau=setTimeout(function(){ bandeau.textContent=""; },duree);
   }
-  /*MAJ-ANNONCE-DEBUT*/
-  /* Bandeau « Mise à jour disponible » : une seule fois par version (correctif du 17/10/2026, accord de Steve).
-     La version annoncée (nom du cache, ex. « sol-legumes-2026-10-17-xxxxxxxx ») est gardée dans localStorage, clé « panier-maj-annoncee » (une seule valeur, rien d'autre).
-     Si le stockage du téléphone est bloqué ou plein (navigation privée, réglage du navigateur) : aucune erreur ; la version annoncée est retenue
-     seulement en mémoire, donc le bandeau ne revient pas tant que l'appli reste ouverte, mais il peut réapparaître une fois à la prochaine ouverture. */
-  var CLE_ANNONCE="panier-maj-annoncee", annonceeMemoire="";
-  function dejaAnnoncee(cache){
-    if(!cache) return false;
-    if(annonceeMemoire===cache) return true;
-    try{ return localStorage.getItem(CLE_ANNONCE)===cache; }catch(_){ return false; }
+  /*MAJ-SILENCIEUSE-DEBUT*/
+  /* Mise à jour silencieuse (18/10/2026, accord de Steve) :
+     - le service worker télécharge une nouvelle version en arrière-plan ; elle attend et prend la main à la PROCHAINE ouverture de l'appli
+       (sw.js, fonction « navigation ») : jamais de rechargement en pleine utilisation, aucun bandeau à toucher ;
+     - si la page affichée est déjà de la version qui attend (passage depuis une ancienne version 9fd0b553 / bf94f794, dont le service worker
+       remplaçait la page en arrière-plan), on l'active tout de suite : rien ne change à l'écran ;
+     - après l'installation, une ligne discrète « Appli mise à jour » s'affiche une fois (8 s, fermable, pause tant qu'on la survole ou qu'on y est au clavier),
+       avec un lien « Nouveautés » vers la liste des changements (encart « Version de l'appli »).
+     Stockage : une seule clé, « panier-version-vue » (la dernière version affichée). L'ancienne clé « panier-maj-annoncee » n'est plus utile : elle est retirée. */
+  var CLE_VUE="panier-version-vue", DUREE_LIGNE=8000;
+  var maVersion="sol-legumes-"+document.getElementById("version-app").textContent;
+  function lireVue(){ try{ return localStorage.getItem(CLE_VUE); }catch(_){ return null; } }
+  function ecrireVue(v){ try{ localStorage.setItem(CLE_VUE,v); return localStorage.getItem(CLE_VUE)===v; }catch(_){ return false; } }
+  function ouvrirNouveautes(){
+    var d=document.getElementById("nouveautes"); if(!d) return;
+    d.open=true;
+    var t=document.getElementById("titre-nouveautes");
+    try{ d.scrollIntoView({block:"center"}); }catch(_){ d.scrollIntoView(); }
+    try{ t.focus({preventScroll:true}); }catch(_){}
   }
-  function memoriserAnnonce(cache){
-    annonceeMemoire=cache||"";
-    try{ localStorage.setItem(CLE_ANNONCE,String(cache)); }catch(_){}
+  function ligneMiseAJour(){
+    clearTimeout(tBandeau); bandeau.textContent=""; bandeau.className="bandeau-sw discret";
+    var s=document.createElement("span"); s.textContent="✓ Appli mise à jour.";
+    var a=document.createElement("a"); a.href="#nouveautes"; a.id="lien-nouveautes"; a.textContent="Nouveautés";
+    a.addEventListener("click",function(ev){ ev.preventDefault(); bandeau.textContent=""; ouvrirNouveautes(); });
+    var b=document.createElement("button"); b.type="button"; b.textContent="Fermer"; b.setAttribute("aria-label","Fermer le message « Appli mise à jour »");
+    b.addEventListener("click",function(){ bandeau.textContent=""; });
+    bandeau.appendChild(s); bandeau.appendChild(a); bandeau.appendChild(b);
+    var pause=false;
+    function armer(){ clearTimeout(tBandeau); tBandeau=setTimeout(function(){ if(!pause&&bandeau.contains(s)) bandeau.textContent=""; },DUREE_LIGNE); }
+    function stop(){ pause=true; clearTimeout(tBandeau); }
+    function reprendre(){ pause=false; armer(); }
+    bandeau.onmouseenter=stop; bandeau.onmouseleave=reprendre; bandeau.onfocusin=stop;
+    bandeau.onfocusout=function(ev){ if(!bandeau.contains(ev.relatedTarget)) reprendre(); };
+    armer();
   }
-  /*MAJ-ANNONCE-FIN*/
+  /* version d'un service worker (réponse sur un canal dédié) */
+  /* (question reposée toutes les 500 ms, 3 s au plus : juste après l'installation, Chrome peut perdre le tout premier message) */
+  function versionDe(w){
+    return new Promise(function(ok){
+      var fini=false, essais=[];
+      function fin(v){ if(fini) return; fini=true; essais.forEach(clearTimeout); ok(v); }
+      function demander(){
+        if(fini) return;
+        var ch=new MessageChannel();
+        ch.port1.onmessage=function(m){ fin(m.data&&m.data.cache?m.data.cache:null); };
+        try{ w.postMessage({type:"version"},[ch.port2]); }catch(_){ fin(null); }
+      }
+      for(var i=0;i<6;i++) essais.push(setTimeout(demander,i*500));
+      essais.push(setTimeout(function(){ fin(null); },3000));
+    });
+  }
+  /* une version installée qui attend : on l'active seulement si la page affichée est déjà de cette version */
+  function surveiller(w){
+    if(!w) return;
+    function tester(){ if(w.state==="installed") versionDe(w).then(function(c){ if(c===maVersion&&w.state==="installed") w.postMessage({type:"passer"}); }); }
+    if(w.state==="installed") tester(); else w.addEventListener("statechange",tester);
+  }
+  /* à l'ouverture : ligne « Appli mise à jour » une fois par version, seulement sur un téléphone qui avait déjà l'appli
+     (pas à la toute première installation) ; si le stockage est bloqué, on ne peut pas savoir : rien n'est affiché. */
+  function siNouvelleVersion(avait){
+    try{ localStorage.removeItem("panier-maj-annoncee"); }catch(_){}
+    var vue=lireVue();
+    if(vue!==maVersion && ecrireVue(maVersion) && (vue||avait) && !window.__apresMaj) ligneMiseAJour();
+  }
+  /*MAJ-SILENCIEUSE-FIN*/
   var h=location.hostname;
   var swPossible=("serviceWorker" in navigator) && (location.protocol==="https:"||h==="localhost"||h==="127.0.0.1");
   if(!swPossible) return;
   var avait=!!navigator.serviceWorker.controller;
+  siNouvelleVersion(avait);
   if(avait){ navigator.serviceWorker.controller.postMessage({type:"etat"}); if(navigator.onLine) navigator.serviceWorker.controller.postMessage({type:"completer"}); }   /* réseau faible : compléter les photos manquantes */
   navigator.serviceWorker.addEventListener("controllerchange",function(){
-    if(avait){ if(navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage({type:"version"}); }
-    else { avait=true; annonce("Prêt hors ligne : l'appli fonctionne maintenant sans connexion.",8000); }
+    /* changement de service worker : rien à afficher (la page affichée est déjà de cette version, ou le bouton s'en occupe) */
+    if(!avait){ avait=true; annonce("Prêt hors ligne : l'appli fonctionne maintenant sans connexion.",8000); }
   });
   navigator.serviceWorker.addEventListener("message",function(e){
     if(!e.data) return;
     if(e.data.type==="reseau"){ coupure=!e.data.ok; majReseau(); }
-    /* nouveau service worker actif : message seulement si la page affichée n'est pas déjà de cette version */
-    if(e.data.type==="version"){
-      var autre=e.data.cache!=="sol-legumes-"+document.getElementById("version-app").textContent;
-      /* pendant un clic sur « Vérifier s'il y a une mise à jour », c'est le script du bouton qui répond (pas de double message) */
-      /* correctif du 17/10/2026 : le bandeau ne s'affiche qu'UNE fois par version (voir bloc MAJ-ANNONCE) */
-      if(!window.__majEnCours&&autre&&!dejaAnnoncee(e.data.cache)){
-        memoriserAnnonce(e.data.cache);
-        annonce("Mise à jour disponible : fermez puis rouvrez l'appli, ou touchez « Vérifier s'il y a une mise à jour » en bas de page.");
-      }
-    }
   });
   navigator.serviceWorker.register("sw.js").then(function(reg){
+    surveiller(reg.waiting); surveiller(reg.installing);
+    reg.addEventListener("updatefound",function(){ surveiller(reg.installing); });
     document.addEventListener("visibilitychange",function(){ if(!document.hidden) reg.update().catch(function(){}); });
   }).catch(function(){});
 })();
