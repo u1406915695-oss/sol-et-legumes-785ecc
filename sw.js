@@ -4,7 +4,7 @@
    La page (index.html) n'est plus remplacée en arrière-plan dans le cache : chaque version de service worker sert SA page.
    Généré par build.py → public/sw.js (ne pas modifier public/sw.js à la main : modifier ce modèle).
    Le numéro de version (date + empreinte du contenu) nomme le cache. */
-var C='sol-legumes-2026-10-23-dc4c583f';
+var C='sol-legumes-2026-10-23-9c36661f';
 var INDEX=new URL('index.html',self.registration.scope).href;
 var ANNEXES=['manifest.json','icon-192.png','icon-512.png','apple-touch-icon.png','favicon-32.png'];
 /* v6 : photos d'illustration des recettes (liste produite par build.py), mises en cache à l'installation pour être disponibles hors ligne (au mieux : une photo manquante est reprise au premier affichage en ligne). */
