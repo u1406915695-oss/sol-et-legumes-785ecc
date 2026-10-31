@@ -1,7 +1,7 @@
 {
- "name": "Panier",
- "short_name": "Panier",
- "description": "Sol, ruches, pêche et recettes de saison",
+ "name": "Terroir – de la terre à la mer",
+ "short_name": "Terroir",
+ "description": "De la terre à la mer : sol, ruches, pêche et recettes de saison",
  "lang": "fr",
  "start_url": "./",
  "scope": "./",
